@@ -1,3 +1,5 @@
+-- Imports de archivos
+import CargarYMostrarMobiliario
 import System.IO
 import Text.Read (Lexeme (String))
 import Text.XHtml (menu)
@@ -54,17 +56,30 @@ menuPrincipal = do
 -- Función para el menú operacional
 menuOperacional :: IO ()
 menuOperacional = do
-  putStrLn "Menu Operacional"
+  putStrLn "\nMenu Operacional\n"
+  putStrLn "1. Cargar y Mostrar mobiliario de sala"
+  putStrLn "2. Cargar y Mostrar salas de reunión"
+  putStrLn "3. Informe de reservas"
+  putStrLn "0. Volver"
+  opcion <- getLine
+  case opcion of
+    "1" -> cargarMobiliario
+    "2" -> putStr "Cargando salas...3"
+    "3" -> putStr "Informe de reservas..."
+    "0" -> menuPrincipal
+    _ -> do
+      putStrLn "Opcion invalida. Por favor ingrese de nuevo"
+      menuOperacional
   -- Aquí irían las opciones del menú operacional
-  putStrLn "Volviendo al menú principal..."
-  menuPrincipal
+  putStrLn "Volviendo al menú operacional...\n"
+  menuOperacional
 
 -- Función para el menú general
 menuGeneral :: IO ()
 menuGeneral = do
-  putStrLn "Menu General"
+  putStrLn "\nMenu General\n"
   -- Aquí irían las opciones del menú general
-  putStrLn "Volviendo al menú principal..."
+  putStrLn "\n2Volviendo al menú principal..."
   menuPrincipal
 
 -- Funciones auxiliares
