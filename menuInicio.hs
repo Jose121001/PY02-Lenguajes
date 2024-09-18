@@ -71,7 +71,7 @@ menuGeneral = do
 
 -- Función para leer el contenido de un archivo codigo brindado por chat
 leerArchivo :: FilePath -> IO String
-leerArchivo ruta = readFile ruta
+leerArchivo = readFile
 
 -- Función para verificar si un ID es válido. codigo brindado por chat
 idValido :: String -> [String] -> Bool
