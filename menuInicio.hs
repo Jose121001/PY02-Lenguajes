@@ -1,4 +1,5 @@
 -- Imports de archivos
+
 import CargarYMostrarMobiliario
 import System.IO
 import Text.Read (Lexeme (String))
@@ -25,13 +26,13 @@ main = do
 formatearUsuario :: (String, String, String) -> String
 formatearUsuario (id, nombre, puesto) = "ID: " ++ id ++ ", Nombre: " ++ nombre ++ ", Puesto: " ++ puesto
 
--- Función para el menú operacional
+-- Función para el menú operacional donde muestra la informacion de usuario
 menuOperacional :: IO ()
 menuOperacional = do
   putStrLn "\nIngrese un id valido para acceder a las opciones operacionales: "
   idUsuario <- getLine
 
-  let ruta = "C:\\Users\\joses\\Desktop\\PY01-Lenguajes\\PY02-Lenguajes\\archivosTxt\\usuarios.txt"
+  let ruta = "C:\\Users\\joses\\Desktop\\PY02-Lenguajes\\archivosTxt\\usuarios.txt"
   contenido <- leerArchivo ruta
   let usuarios = map procesarLinea (lines contenido)
 
