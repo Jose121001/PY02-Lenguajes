@@ -1,2 +1,3 @@
-20240920231802,Sala01,2,2,10,00 01 01 00
-20240920231829,Sala00,1,1,5,02 02
+20240920234451,sala009,1,2,3,Nombre no encontrado
+20240920234518,x,x,x,x,Nombre no encontrado
+20240920234833,v,v,v,v,pantalla Monitor aire acondicionado Almuerzo Almuerzo aire acondicionado Monitor pantalla

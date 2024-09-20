@@ -262,10 +262,17 @@ mostrarSalasDeReunion rutaRef = do
   archivoExiste <- doesPathExist rutaSalas
   if archivoExiste
     then do
+      putStrLn "\nIngrese el codigo de la sala:\n"
+      codigoSala <- getLine
       contenido <- readFile rutaSalas
       let lineas = lines contenido
       let salas = map procesarLineaSala lineas -- Procesar lineas de salas
-      mapM_ (putStrLn . formatearSala) salas -- Mostrar salas
+      let salaEncontrada = filter (\(codigo, _, _, _, _, _) -> codigo == codigoSala) salas
+      putStrLn "\nMostrando informacion de la sala:\n"
+      case salaEncontrada of
+        [(codigo, nombre, piso, ubicacion, capacidad, mobiliarios)] ->
+          putStrLn $ formatearSala (codigo, nombre, piso, ubicacion, capacidad, mobiliarios)
+        _ -> putStrLn "Error: Sala no encontrada."
       menuSalasReunion rutaRef
     else putStrLn "Error: El archivo de salas especificado no existe."
 
@@ -311,18 +318,26 @@ seleccionarMobiliarios existentes seleccionados = do
     else do
       resultadoValidacion <- validarCodigoExistente idMobiliario existentes
       case resultadoValidacion of
-        Just codigo ->
-          if codigo `elem` seleccionados
+        Just codigo -> do
+          let nombreMobiliario = buscarNombrePorID codigo existentes
+          if nombreMobiliario `elem` seleccionados
             then do
-              putStrLn "Error: El codigo ya ha sido seleccionado. Intentalo de nuevo."
+              putStrLn "Error: El mobiliario ya ha sido seleccionado. Inténtalo de nuevo."
               seleccionarMobiliarios existentes seleccionados -- Volver a pedir el ID
             else do
-              -- Si el ID es válido y no ha sido seleccionado, lo agrega
-              idsRestantes <- seleccionarMobiliarios existentes (codigo : seleccionados)
-              return (codigo : idsRestantes)
+              -- Agregar el nombre en lugar del ID
+              idsRestantes <- seleccionarMobiliarios existentes (nombreMobiliario : seleccionados)
+              return (nombreMobiliario : idsRestantes)
         Nothing -> do
-          putStrLn "Error: ID no válido. Intentalo de nuevo."
+          putStrLn "Error: ID no válido. Inténtalo de nuevo."
           seleccionarMobiliarios existentes seleccionados -- Volver a pedir el ID
+
+-- Funcion que me permite obtener el nombre por id
+buscarNombrePorID :: String -> [(String, String, String, String)] -> String
+buscarNombrePorID idMobiliario existentes =
+  case filter (\(id, nombre, _, _) -> id == idMobiliario) existentes of
+    [(id, nombre, _, _)] -> nombre
+    _ -> "Nombre no encontrado" -- O maneja el caso de error según necesites
 
 -- Función para validar que el codigo no este vacio y verificar si existe.Brindado por chat
 validarCodigoExistente :: String -> [(String, String, String, String)] -> IO (Maybe String)
