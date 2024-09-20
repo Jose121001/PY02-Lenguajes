@@ -1,6 +1,7 @@
 -- Imports de archivos
 
 import Data.Char (isDigit) --  isDigit para verifica si un caracter es un digito
+import Data.IORef
 import System.Directory (doesDirectoryExist, doesPathExist)
 import System.FilePath (takeDirectory)
 import System.IO
@@ -10,6 +11,12 @@ import Text.XHtml (menu)
 -- Funcion que permite mostrar las opciones del menu de inicio
 main :: IO ()
 main = do
+  rutaRef <- newIORef "" -- Inicializamos la referencia vacía
+  menuPrincipal rutaRef
+
+-- Funcion del menú principal que ahora recibe la referencia
+menuPrincipal :: IORef FilePath -> IO ()
+menuPrincipal rutaRef = do
   putStrLn "\nBienvenido al sistema\n"
   putStrLn "Por favor seleccione la opción deseada:\n"
   putStrLn "1. Menu operacional"
@@ -17,20 +24,16 @@ main = do
   putStrLn "0. Salir"
   opcion <- getLine
   case opcion of
-    "1" -> menuOperacional
+    "1" -> menuOperacional rutaRef
     "2" -> menuGeneral
     "0" -> putStrLn "Saliendo del sistema..."
     _ -> do
       putStrLn "Opcion inválida. Intentelo de nuevo."
-      main
-
--- Formatea la informacion del usuario para mostrarla
-formatearUsuario :: (String, String, String) -> String
-formatearUsuario (id, nombre, puesto) = "ID: " ++ id ++ ", Nombre: " ++ nombre ++ ", Puesto: " ++ puesto
+      menuPrincipal rutaRef
 
 -- Funcion para el menu operacional donde muestra la información del usuario
-menuOperacional :: IO ()
-menuOperacional = do
+menuOperacional :: IORef FilePath -> IO ()
+menuOperacional rutaRef = do
   putStrLn "\nIngrese un id valido para acceder a las opciones operacionales: "
   idUsuario <- getLine
 
@@ -48,16 +51,16 @@ menuOperacional = do
       putStrLn "0. Volver"
       opcion <- getLine
       case opcion of
-        "1" -> cargarMobiliario
-        "2" -> putStrLn "Cargando salas de reunión..."
+        "1" -> cargarMobiliario rutaRef
+        "2" -> menuSalasReunion rutaRef
         "3" -> putStrLn "Informe de reservas..."
         "0" -> main
         _ -> do
           putStrLn "Opción inválida. Intentelo de nuevo."
-          menuOperacional
+          menuOperacional rutaRef
     Nothing -> do
       putStrLn "ID no válido. Por favor, intente nuevamente."
-      menuOperacional
+      menuOperacional rutaRef
 
 -- Funcion para el menú general
 menuGeneral :: IO ()
@@ -67,7 +70,220 @@ menuGeneral = do
   putStrLn "\nVolviendo al menú principal..."
   main
 
--- Funciones auxiliares
+-------------------------------------------------Funciones auxiliares usuario---------------------------------------------------------------
+-- Funcion para procesar cada línea del archivo
+procesarLinea :: String -> (String, String, String)
+procesarLinea linea =
+  let [id, nombre, puesto] = splitBy ',' linea
+   in (id, nombre, puesto)
+
+-- Formatea la informacion del usuario para mostrarla
+formatearUsuario :: (String, String, String) -> String
+formatearUsuario (id, nombre, puesto) = "ID: " ++ id ++ ", Nombre: " ++ nombre ++ ", Puesto: " ++ puesto
+
+-------------------------------------------------Fin de funciones auxiliares usuario---------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------Cargar mobiliarios-------------------------------------------------------------------------------
+
+-- Funcion para cargar mobiliario
+cargarMobiliario :: IORef FilePath -> IO ()
+cargarMobiliario rutaRef = do
+  putStrLn "\nFuncion para cargar mobiliario de sala\n"
+  putStrLn "Ingrese la ubicacion donde desea guardar la informacion (ruta completa, e.g. C:\\ruta\\archivo.txt):\n"
+  ruta <- getLine
+  let carpeta = takeDirectory ruta
+  existe <- doesDirectoryExist carpeta
+  if existe
+    then do
+      -- Leer mobiliario existente antes de solicitar nuevo código
+      archivoExiste <- doesPathExist ruta
+      existentes <-
+        if archivoExiste
+          then do
+            -- Guardamos la ruta en la referencia
+            writeIORef rutaRef ruta
+            contenido <- readFile ruta
+            let lineas = lines contenido
+            return $ map procesarLineaMobiliario lineas
+          else return [] -- Si no existe el archivo, retornamos una lista vacía
+      putStrLn "\nIngrese la informacion del mobiliario:\n"
+      -- Solicitud de variables individuales
+      -- Validamos que no está vacío cada variable. Brindado por chat
+      codigo <- validarCodigoUnico "Codigo: " existentes
+      nombre <- validarEntrada "Nombre: " (\x -> not (null x) && all (not . isDigit) x) "Error: El nombre no puede estar vacío ni contener números."
+      descripcion <- validarEntrada "Descripcion: " (\x -> not (null x)) "Error: La descripcion no puede estar vacia."
+      tipo <- validarTipo
+      -- Moldeamos la informacion en una cadena
+      let contenidoMobiliario = codigo ++ "," ++ nombre ++ "," ++ descripcion ++ "," ++ tipo
+      -- Guardamos la informacion del mobiliario con las variables concatenadas
+      agregarMobiliario ruta contenidoMobiliario
+      putStrLn "Mobiliario agregado exitosamente...."
+      -- Mostrar el contenido del archivo después de agregar el mobiliario
+      mostrarMobiliarioGuardado rutaRef
+      menuOperacional rutaRef
+    else putStrLn "Error: La carpeta especificada no existe."
+
+--------------------------------------Funciones auxiliares para mobiliario.------------------------------------------------------------------------------
+
+-- Funcion para agregar mobiliario a un archivo txt
+agregarMobiliario :: FilePath -> String -> IO ()
+agregarMobiliario ruta nuevoMobiliario = appendFile ruta (nuevoMobiliario ++ "\n")
+
+-- Funcion para validar que el codigo no este repetido o vacio
+validarCodigoUnico :: String -> [(String, String, String, String)] -> IO String
+validarCodigoUnico mensaje existentes = do
+  putStrLn mensaje
+  codigo <- getLine
+  if not (null codigo) && all (\(c, _, _, _) -> c /= codigo) existentes
+    then return codigo
+    else do
+      putStrLn "Error: El código ya existe o es invalido, ingrese uno nuevo."
+      validarCodigoUnico mensaje existentes
+
+-- Funciin para validar las entradas de las variables brindada por chat
+validarEntrada :: String -> (String -> Bool) -> String -> IO String
+validarEntrada mensaje condicion mensajeError = do
+  putStrLn mensaje
+  entrada <- getLine
+  if condicion entrada
+    then return entrada
+    else do
+      putStrLn mensajeError
+      validarEntrada mensaje condicion mensajeError
+
+-- Funcion para mostrar todos los mobiliarios registrados
+mostrarMobiliarioGuardado :: IORef FilePath -> IO ()
+mostrarMobiliarioGuardado rutaRef = do
+  ruta <- readIORef rutaRef -- Leer la ruta desde el IORef
+  archivoExiste <- doesPathExist ruta
+  if archivoExiste
+    then do
+      contenido <- readFile ruta
+      let lineas = lines contenido
+      let mobiliarios = map procesarLineaMobiliario lineas
+      mapM_ (putStrLn . formatearMobiliario) mobiliarios
+    else putStrLn "Error: El archivo especificado no existe."
+
+-- Funcion para validar el tipo de "tipo"
+validarTipo :: IO String
+validarTipo = do
+  putStrLn "Tipo (consumible, electronico o menaje): "
+  tipo <- getLine
+  case tipo of
+    "consumible" -> return tipo
+    "electronico" -> return tipo
+    "menaje" -> return tipo
+    _ -> do
+      putStrLn "Error: Tipo invalido. Debe ser (consumible, electronico, menaje)."
+      validarTipo
+
+-- Funcion para procesar una linea del archivo en una tupla de mobiliario
+procesarLineaMobiliario :: String -> (String, String, String, String)
+procesarLineaMobiliario linea =
+  let [codigo, nombre, descripcion, tipo] = splitBy ',' linea
+   in (codigo, nombre, descripcion, tipo)
+
+-- Funcion para formatear la informacion del mobiliario para mostrarla
+formatearMobiliario :: (String, String, String, String) -> String
+formatearMobiliario (codigo, nombre, descripcion, tipo) =
+  "Codigo: " ++ codigo ++ ", Nombre: " ++ nombre ++ ", Descripción: " ++ descripcion ++ ", Tipo: " ++ tipo
+
+------------------------------------Fin de funciones auxiliares de mobiliario--------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------Cargar y mostrar salas--------------------------------------------------------------------------------------------------------------
+-- Funcion para cargar mobiliario
+menuSalasReunion :: IORef FilePath -> IO ()
+menuSalasReunion rutaRef = do
+  putStrLn "\nDigite la opcion deseada: \n"
+  putStrLn "1. Cargar salas de reunion"
+  putStrLn "2. Mostrar salas de reunion"
+  putStrLn "0. Volver"
+  opcionUsuario <- getLine
+  case opcionUsuario of
+    "1" -> cargarSalasDeReunion rutaRef
+    "2" -> putStrLn ""
+    "0" -> menuPrincipal rutaRef
+    _ -> do
+      putStrLn "Opción inválida. Intentelo de nuevo."
+      menuSalasReunion rutaRef
+
+cargarSalasDeReunion :: IORef FilePath -> IO ()
+cargarSalasDeReunion rutaRef = do
+  -- Leemos la ruta previamente almacenada en rutaRef
+  -- Leemos la ruta previamente almacenada en rutaRef
+  ruta <- readIORef rutaRef
+  let rutaSala = "archivosTxt\\salas.txt"
+  let carpetaSalas = takeDirectory ruta
+  existe <- doesDirectoryExist carpetaSalas
+  if existe
+    then do
+      putStrLn "\nIngrese la informacion de la sala:\n"
+
+      -- Solicitud de variables individuales con validación
+      nombre <- validarEntrada "Nombre: " (\x -> not (null x)) "Error: El nombre no puede estar vacio."
+      piso <- validarEntrada "Piso: " (\x -> not (null x)) "Error: El piso no puede estar vacio ni contener números."
+      ubicacion <- validarEntrada "Ubicacion: " (\x -> not (null x)) "Error: La Ubicacion no puede estar vacia."
+      capacidad <- validarEntrada "Capacidad: " (\x -> not (null x)) "Error: La Capacidad no puede estar vacia."
+
+      -- Almacenar los IDs de los mobiliarios seleccionados
+      putStrLn "\nMobiliarios deseados:\n"
+      -- Cargamos mobiliarios existentes desde el archivo
+      existentes <- cargarMobiliariosDesdeArchivo rutaRef
+      -- Guardaremos los ids que el usuario vaya a agregando en la variable
+      idsMobiliarios <- seleccionarMobiliarios []
+
+      -- Formateamos la información para guardarla
+      -- La lista se agregara en el contenido
+      let contenidoSala = nombre ++ "," ++ piso ++ "," ++ ubicacion ++ "," ++ capacidad ++ "," ++ unwords idsMobiliarios ++ "\n"
+
+      -- Guardamos la información en el archivo
+      appendFile rutaSala contenidoSala
+      putStrLn "Sala agregada exitosamente...."
+      menuOperacional rutaRef
+    else putStrLn "Error: La carpeta especificada no existe."
+
+------------------------------------------Funciones auxiliares generales-------------------------------------------------------------
+
+-- Funcion para cargar la lista de mobiliarios desde el archivo
+cargarMobiliariosDesdeArchivo :: IORef FilePath -> IO [(String, String, String, String)]
+cargarMobiliariosDesdeArchivo rutaRef = do
+  -- Obtenemos la ruta guardada
+  ruta <- readIORef rutaRef
+  contenido <- readFile ruta
+  let lineas = lines contenido
+  return $ map procesarLineaMobiliario lineas -- Procesa cada línea en la tupla
+
+-- Funcion para seleccionar mobiliarios.Brindado por chat
+seleccionarMobiliarios :: [(String, String, String, String)] -> IO [String]
+seleccionarMobiliarios existentes = do
+  putStrLn "Ingrese el ID de los mobiliario deseados (o '@' para terminar):"
+  idMobiliario <- getLine
+  if idMobiliario == "@"
+    then return []
+    else do
+      resultadoValidacion <- validarCodigoExistente idMobiliario existentes
+      case resultadoValidacion of
+        Just codigo -> do
+          -- Si el ID es valido, continua seleccionando
+          idsRestantes <- seleccionarMobiliarios existentes
+          return (codigo : idsRestantes)
+        Nothing -> seleccionarMobiliarios existentes -- ID no valido, vuelve a pedir
+
+-- Función para validar que el codigo no este vacio y verificar si existe.Brindado por chat
+validarCodigoExistente :: String -> [(String, String, String, String)] -> IO (Maybe String)
+validarCodigoExistente codigo existentes = do
+  if null codigo
+    then do
+      putStrLn "Error: El codigo no puede estar vacio. Intenta1lo de nuevo."
+      return Nothing -- Retorna Nothing si el código está vacío
+    else
+      if any (\(c, _, _, _) -> c == codigo) existentes
+        then do
+          putStrLn $ "El codigo ingresado existe: " ++ codigo
+          return (Just codigo) -- Retorna Just el código si existe
+        else do
+          putStrLn "Error: El codigo no existe. Ingrese uno valido."
+          return Nothing -- Retorna Nothing si no existe
 
 -- Funcion para leer el contenido de un archivo. Brindado por chat
 leerArchivo :: FilePath -> IO String
@@ -82,91 +298,6 @@ splitBy delimiter (c : cs)
   where
     rest = splitBy delimiter cs
 
--- Funcion para procesar cada línea del archivo
-procesarLinea :: String -> (String, String, String)
-procesarLinea linea =
-  let [id, nombre, puesto] = splitBy ',' linea
-   in (id, nombre, puesto)
-
--------------------------------------------------Cargar mobiliarios---------------------------------------------------------------
-
--- Funcion para agregar mobiliario a un archivo txt
-agregarMobiliario :: FilePath -> String -> IO ()
-agregarMobiliario ruta nuevoMobiliario = appendFile ruta (nuevoMobiliario ++ "\n")
-
--- Funcion para cargar mobiliario
-cargarMobiliario :: IO ()
-cargarMobiliario = do
-  putStrLn "\nFunción para cargar mobiliario de sala\n"
-  putStrLn "Ingrese la ubicacion donde desea guardar la información (ruta completa, e.g. C:\\ruta\\archivo.txt):\n"
-  ruta <- getLine
-  let carpeta = takeDirectory ruta
-  existe <- doesDirectoryExist carpeta
-  if existe
-    then do
-      putStrLn "\nIngrese la informacion del mobiliario:\n"
-
-      -- Solicitud de variables individuales
-      -- Validamos que no está vacío cada variable. Brindado por chat
-      codigo <- validarEntrada "Código: " (\x -> not (null x)) "Error: El codigo no puede estar vacío."
-      nombre <- validarEntrada "Nombre: " (\x -> not (null x) && all (not . isDigit) x) "Error: El nombre no puede estar vacío ni contener números."
-      descripcion <- validarEntrada "Descripción: " (\x -> not (null x)) "Error: La descripcion no puede estar vacia."
-      tipo <- validarTipo
-      -- Moldeamos la informacion en una cadena
-      let contenidoMobiliario = codigo ++ "," ++ nombre ++ "," ++ descripcion ++ "," ++ tipo
-      -- Guardamos la informacion del mobiliario con las variables concatenadas
-      agregarMobiliario ruta contenidoMobiliario
-      putStrLn "Mobiliario agregado exitosamente...."
-      -- Mostrar el contenido del archivo después de agregar el mobiliario
-      mostrarMobiliarioGuardado ruta
-      main
-    else putStrLn "Error: La carpeta especificada no existe."
-
--- Funciones auxiliares.
-
--- Funciin para validar las entradas de las variables brindada por chat
-validarEntrada :: String -> (String -> Bool) -> String -> IO String
-validarEntrada mensaje condicion mensajeError = do
-  putStrLn mensaje
-  entrada <- getLine
-  if condicion entrada
-    then return entrada
-    else do
-      putStrLn mensajeError
-      validarEntrada mensaje condicion mensajeError
-
--- Funcion para mostrar todos los mobiliarios registrados
-mostrarMobiliarioGuardado :: FilePath -> IO ()
-mostrarMobiliarioGuardado ruta = do
-  archivoExiste <- doesPathExist ruta
-  if archivoExiste
-    then do
-      contenido <- readFile ruta -- Lee el contenido del archivo (IO String)
-      let lineas = lines contenido -- Procesa el contenido (String -> [String])
-      let mobiliarios = map procesarLineaMobiliario lineas -- Convierte cada línea en una tupla con procesarLinea
-      mapM_ (putStrLn . formatearMobiliario) mobiliarios -- Muestra cada mobiliario formateado
-    else putStrLn "Error: El archivo especificado no existe."
-
--- Función para validar el tipo de "tipo"
-validarTipo :: IO String
-validarTipo = do
-  putStrLn "Tipo (consumible, electronico o menaje): "
-  tipo <- getLine
-  case tipo of
-    "consumible" -> return tipo
-    "electronico" -> return tipo
-    "menaje" -> return tipo
-    _ -> do
-      putStrLn "Error: Tipo invalido. Debe ser (consumible, electronico, menaje)."
-      validarTipo
-
--- Función para procesar una linea del archivo en una tupla de mobiliario
-procesarLineaMobiliario :: String -> (String, String, String, String)
-procesarLineaMobiliario linea =
-  let [codigo, nombre, descripcion, tipo] = splitBy ',' linea
-   in (codigo, nombre, descripcion, tipo)
-
--- Función para formatear la información del mobiliario para mostrarla
-formatearMobiliario :: (String, String, String, String) -> String
-formatearMobiliario (codigo, nombre, descripcion, tipo) =
-  "Codigo: " ++ codigo ++ ", Nombre: " ++ nombre ++ ", Descripción: " ++ descripcion ++ ", Tipo: " ++ tipo
+-- Definimos una "variable global" para la ruta de mobiliarios
+rutaMobiliariosRef :: IO (IORef FilePath)
+rutaMobiliariosRef = newIORef ""

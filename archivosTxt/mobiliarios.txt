@@ -1,5 +1,0 @@
-1,Mansion,Grande con tele,electronico
-2,Jose,Grande y feo,consumible
-3,Vane,Hola,electronico
-4,Josefa,12,consumible
-5,Vanessa,Linda,consumible

@@ -1,0 +1,2 @@
+sala01,3,cuarta sala a la derecha,20 personas
+
