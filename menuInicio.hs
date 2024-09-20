@@ -120,7 +120,7 @@ cargarMobiliario rutaRef = do
       putStrLn "Mobiliario agregado exitosamente...."
       -- Mostrar el contenido del archivo después de agregar el mobiliario
       mostrarMobiliarioGuardado rutaRef
-      menuOperacional rutaRef
+      menuPrincipal rutaRef
     else putStrLn "Error: La carpeta especificada no existe."
 
 --------------------------------------Funciones auxiliares para mobiliario.------------------------------------------------------------------------------
@@ -201,7 +201,7 @@ menuSalasReunion rutaRef = do
   opcionUsuario <- getLine
   case opcionUsuario of
     "1" -> cargarSalasDeReunion rutaRef
-    "2" -> putStrLn ""
+    "2" -> mostrarSalasDeReunion rutaRef
     "0" -> menuPrincipal rutaRef
     _ -> do
       putStrLn "Opción inválida. Intentelo de nuevo."
@@ -210,7 +210,8 @@ menuSalasReunion rutaRef = do
 cargarSalasDeReunion :: IORef FilePath -> IO ()
 cargarSalasDeReunion rutaRef = do
   -- Leemos la ruta previamente almacenada en rutaRef
-  -- Leemos la ruta previamente almacenada en rutaRef
+  ruta <- readIORef rutaRef
+  putStrLn ("Ruta leída: " ++ ruta)
   ruta <- readIORef rutaRef
   let rutaSala = "archivosTxt\\salas.txt"
   let carpetaSalas = takeDirectory ruta
@@ -219,7 +220,7 @@ cargarSalasDeReunion rutaRef = do
     then do
       putStrLn "\nIngrese la informacion de la sala:\n"
 
-      -- Solicitud de variables individuales con validación
+      -- Solicitud de variables individuales con validacion
       nombre <- validarEntrada "Nombre: " (\x -> not (null x)) "Error: El nombre no puede estar vacio."
       piso <- validarEntrada "Piso: " (\x -> not (null x)) "Error: El piso no puede estar vacio ni contener números."
       ubicacion <- validarEntrada "Ubicacion: " (\x -> not (null x)) "Error: La Ubicacion no puede estar vacia."
@@ -229,8 +230,10 @@ cargarSalasDeReunion rutaRef = do
       putStrLn "\nMobiliarios deseados:\n"
       -- Cargamos mobiliarios existentes desde el archivo
       existentes <- cargarMobiliariosDesdeArchivo rutaRef
-      -- Guardaremos los ids que el usuario vaya a agregando en la variable
-      idsMobiliarios <- seleccionarMobiliarios []
+      -- Mostramos el contenido del archivo utilizando la referencia
+      mostrarMobiliarioGuardado rutaRef
+      -- Llamada a seleccionarMobiliarios con la lista de mobiliarios existentes y una lista vacia para los seleccionados
+      idsMobiliarios <- seleccionarMobiliarios existentes []
 
       -- Formateamos la información para guardarla
       -- La lista se agregara en el contenido
@@ -239,14 +242,40 @@ cargarSalasDeReunion rutaRef = do
       -- Guardamos la información en el archivo
       appendFile rutaSala contenidoSala
       putStrLn "Sala agregada exitosamente...."
-      menuOperacional rutaRef
+      menuSalasReunion rutaRef
     else putStrLn "Error: La carpeta especificada no existe."
 
-------------------------------------------Funciones auxiliares generales-------------------------------------------------------------
+mostrarSalasDeReunion :: IORef FilePath -> IO ()
+mostrarSalasDeReunion rutaRef = do
+  let rutaSalas = "archivosTxt\\salas.txt"
+  archivoExiste <- doesPathExist rutaSalas
+  if archivoExiste
+    then do
+      contenido <- readFile rutaSalas
+      let lineas = lines contenido
+      let salas = map procesarLineaSala lineas -- Procesar lineas de salas
+      mapM_ (putStrLn . formatearSala) salas -- Mostrar salas
+      menuSalasReunion rutaRef
+    else putStrLn "Error: El archivo de salas especificado no existe."
+
+------------------------------------------Funciones auxiliares Salas-------------------------------------------------------------
+
+-- Función para procesar una línea del archivo de salas en una tupla
+procesarLineaSala :: String -> (String, String, String, String, String)
+procesarLineaSala linea =
+  let [nombre, piso, ubicacion, capacidad, mobiliarios] = splitBy ',' linea
+   in (nombre, piso, ubicacion, capacidad, mobiliarios)
+
+-- Función para formatear la información de la sala para mostrarla
+formatearSala :: (String, String, String, String, String) -> String
+formatearSala (nombre, piso, ubicacion, capacidad, mobiliarios) =
+  "Nombre: " ++ nombre ++ ", Piso: " ++ piso ++ ", Ubicacion: " ++ ubicacion ++ ", Capacidad: " ++ capacidad ++ ", Mobiliarios: " ++ mobiliarios
 
 -- Funcion para cargar la lista de mobiliarios desde el archivo
 cargarMobiliariosDesdeArchivo :: IORef FilePath -> IO [(String, String, String, String)]
 cargarMobiliariosDesdeArchivo rutaRef = do
+  ruta <- readIORef rutaRef
+  putStrLn ("Ruta leida: " ++ ruta)
   -- Obtenemos la ruta guardada
   ruta <- readIORef rutaRef
   contenido <- readFile ruta
@@ -254,20 +283,28 @@ cargarMobiliariosDesdeArchivo rutaRef = do
   return $ map procesarLineaMobiliario lineas -- Procesa cada línea en la tupla
 
 -- Funcion para seleccionar mobiliarios.Brindado por chat
-seleccionarMobiliarios :: [(String, String, String, String)] -> IO [String]
-seleccionarMobiliarios existentes = do
-  putStrLn "Ingrese el ID de los mobiliario deseados (o '@' para terminar):"
+-- Función para seleccionar mobiliarios
+seleccionarMobiliarios :: [(String, String, String, String)] -> [String] -> IO [String]
+seleccionarMobiliarios existentes seleccionados = do
+  putStrLn "Ingrese el ID de los mobiliarios deseados (o '@' para terminar):"
   idMobiliario <- getLine
   if idMobiliario == "@"
-    then return []
+    then return seleccionados
     else do
       resultadoValidacion <- validarCodigoExistente idMobiliario existentes
       case resultadoValidacion of
-        Just codigo -> do
-          -- Si el ID es valido, continua seleccionando
-          idsRestantes <- seleccionarMobiliarios existentes
-          return (codigo : idsRestantes)
-        Nothing -> seleccionarMobiliarios existentes -- ID no valido, vuelve a pedir
+        Just codigo ->
+          if codigo `elem` seleccionados
+            then do
+              putStrLn "Error: El codigo ya ha sido seleccionado. Intentalo de nuevo."
+              seleccionarMobiliarios existentes seleccionados -- Volver a pedir el ID
+            else do
+              -- Si el ID es válido y no ha sido seleccionado, lo agrega
+              idsRestantes <- seleccionarMobiliarios existentes (codigo : seleccionados)
+              return (codigo : idsRestantes)
+        Nothing -> do
+          putStrLn "Error: ID no válido. Intentalo de nuevo."
+          seleccionarMobiliarios existentes seleccionados -- Volver a pedir el ID
 
 -- Función para validar que el codigo no este vacio y verificar si existe.Brindado por chat
 validarCodigoExistente :: String -> [(String, String, String, String)] -> IO (Maybe String)
@@ -284,6 +321,10 @@ validarCodigoExistente codigo existentes = do
         else do
           putStrLn "Error: El codigo no existe. Ingrese uno valido."
           return Nothing -- Retorna Nothing si no existe
+
+---------------------------------------------Fin funciones  auxiliares Salas----------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------Funciones auxiliares generales-----------------------------------------------------------------------------
 
 -- Funcion para leer el contenido de un archivo. Brindado por chat
 leerArchivo :: FilePath -> IO String

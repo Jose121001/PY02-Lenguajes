@@ -1,2 +1,2 @@
-sala01,3,cuarta sala a la derecha,20 personas
-
+Sala01,3,Ultimo salon a la derecha,10,01 01 01 02 03
+Sala02,1,Primer oficina a la izquiera color azul,5,01 03
