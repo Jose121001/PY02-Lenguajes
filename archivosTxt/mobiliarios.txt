@@ -1,9 +1,3 @@
-01,Televisor,Pantalla plana Samnsung,menaje
-02,Cuadro,Cuadro de la monaliza,menaje
-03,Sillon,Sillon blanco terciopelo ,menaje
-04,Lampara de mesa,Lampara de mesa azul,electronico
-1,s,s,menaje
-000,s,w,consumible
-0000,nn,nn,electronico
-09,a,a,consumible
-2,w,w,consumible
+00,pantalla,Pantalla plana oled 4k,electronico
+01,Monitor,Monitor oled 8K,electronico
+02,aire acondicionado,Aire refrescador frio,electronico

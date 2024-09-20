@@ -1,2 +1,2 @@
-Sala01,3,Ultimo salon a la derecha,10,01 01 01 02 03
-Sala02,1,Primer oficina a la izquiera color azul,5,01 03
+20240920231802,Sala01,2,2,10,00 01 01 00
+20240920231829,Sala00,1,1,5,02 02

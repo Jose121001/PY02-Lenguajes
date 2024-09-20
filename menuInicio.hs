@@ -2,9 +2,12 @@
 
 import Data.Char (isDigit) --  isDigit para verifica si un caracter es un digito
 import Data.IORef
+import Data.List (isInfixOf)
+import Data.Time (defaultTimeLocale, formatTime, getCurrentTime)
 import System.Directory (doesDirectoryExist, doesPathExist)
 import System.FilePath (takeDirectory)
 import System.IO
+import System.IO (IOMode (ReadMode), withFile)
 import Text.Read (Lexeme (String))
 import Text.XHtml (menu)
 
@@ -235,13 +238,21 @@ cargarSalasDeReunion rutaRef = do
       -- Llamada a seleccionarMobiliarios con la lista de mobiliarios existentes y una lista vacia para los seleccionados
       idsMobiliarios <- seleccionarMobiliarios existentes []
 
+      -- Define el valor inicial del contador
+      let contador = 1 -- Puedes cambiar este valor si lo deseas
+
+      -- Genera el código de sala (usamos un contador y lo convertimos a String)
+      codigoSala <- generarCodigoUnico
+
       -- Formateamos la información para guardarla
       -- La lista se agregara en el contenido
-      let contenidoSala = nombre ++ "," ++ piso ++ "," ++ ubicacion ++ "," ++ capacidad ++ "," ++ unwords idsMobiliarios ++ "\n"
+      let contenidoSala = codigoSala ++ "," ++ nombre ++ "," ++ piso ++ "," ++ ubicacion ++ "," ++ capacidad ++ "," ++ unwords idsMobiliarios ++ "\n"
+      -- Escribir en el archivo utilizando withFile para evitar bloqueo
 
       -- Guardamos la información en el archivo
       appendFile rutaSala contenidoSala
-      putStrLn "Sala agregada exitosamente...."
+      putStrLn ("\nCodigo de sala generado: " ++ codigoSala)
+      putStrLn "\nSala agregada exitosamente....\n"
       menuSalasReunion rutaRef
     else putStrLn "Error: La carpeta especificada no existe."
 
@@ -260,16 +271,23 @@ mostrarSalasDeReunion rutaRef = do
 
 ------------------------------------------Funciones auxiliares Salas-------------------------------------------------------------
 
+-- Función para generar un código único basado en la fecha y hora
+generarCodigoUnico :: IO String
+generarCodigoUnico = do
+  tiempoActual <- getCurrentTime
+  let codigoUnico = formatTime defaultTimeLocale "%Y%m%d%H%M%S" tiempoActual
+  return codigoUnico
+
 -- Función para procesar una línea del archivo de salas en una tupla
-procesarLineaSala :: String -> (String, String, String, String, String)
+procesarLineaSala :: String -> (String, String, String, String, String, String)
 procesarLineaSala linea =
-  let [nombre, piso, ubicacion, capacidad, mobiliarios] = splitBy ',' linea
-   in (nombre, piso, ubicacion, capacidad, mobiliarios)
+  let [codigoSala, nombre, piso, ubicacion, capacidad, mobiliarios] = splitBy ',' linea
+   in (codigoSala, nombre, piso, ubicacion, capacidad, mobiliarios)
 
 -- Función para formatear la información de la sala para mostrarla
-formatearSala :: (String, String, String, String, String) -> String
-formatearSala (nombre, piso, ubicacion, capacidad, mobiliarios) =
-  "Nombre: " ++ nombre ++ ", Piso: " ++ piso ++ ", Ubicacion: " ++ ubicacion ++ ", Capacidad: " ++ capacidad ++ ", Mobiliarios: " ++ mobiliarios
+formatearSala :: (String, String, String, String, String, String) -> String
+formatearSala (codigoSala, nombre, piso, ubicacion, capacidad, mobiliarios) =
+  "Código de la sala: " ++ codigoSala ++ ", Nombre: " ++ nombre ++ ", Piso: " ++ piso ++ ", Ubicación: " ++ ubicacion ++ ", Capacidad: " ++ capacidad ++ ", Mobiliarios: " ++ mobiliarios
 
 -- Funcion para cargar la lista de mobiliarios desde el archivo
 cargarMobiliariosDesdeArchivo :: IORef FilePath -> IO [(String, String, String, String)]
