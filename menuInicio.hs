@@ -1,6 +1,8 @@
 -- Imports de archivos
 
-import Data.Char (isDigit) --  isDigit para verifica si un caracter es un digito
+--  isDigit para verifica si un caracter es un digito
+
+import Data.Char (isAlpha, isDigit)
 import Data.IORef
 import Data.List (isInfixOf)
 import Data.Time (defaultTimeLocale, formatTime, getCurrentTime)
@@ -225,7 +227,7 @@ cargarSalasDeReunion rutaRef = do
       nombre <- validarEntrada "Nombre: " (\x -> not (null x)) "Error: El nombre no puede estar vacio."
       piso <- validarEntrada "Piso: " (\x -> not (null x)) "Error: El piso no puede estar vacio ni contener números."
       ubicacion <- validarEntrada "Ubicacion: " (\x -> not (null x)) "Error: La Ubicacion no puede estar vacia."
-      capacidad <- validarEntrada "Capacidad: " (\x -> not (null x)) "Error: La Capacidad no puede estar vacia."
+      capacidad <- validarEntradaCapacidad "Capacidad: "
 
       -- Almacenar los IDs de los mobiliarios seleccionados
       putStrLn "\nMobiliarios deseados:\n"
@@ -369,3 +371,14 @@ splitBy delimiter (c : cs)
 -- Definimos una "variable global" para la ruta de mobiliarios
 rutaMobiliariosRef :: IO (IORef FilePath)
 rutaMobiliariosRef = newIORef ""
+
+-- Valida entrada solo letras
+validarEntradaCapacidad :: String -> IO String
+validarEntradaCapacidad mensaje = do
+  putStr mensaje
+  entrada <- getLine
+  if null entrada || any (not . isDigit) entrada
+    then do
+      putStrLn "Error: La capacidad debe ser un número entero sin caracteres ni espacios."
+      validarEntradaCapacidad mensaje
+    else return entrada
