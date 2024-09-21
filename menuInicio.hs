@@ -7,8 +7,6 @@ import Data.Time (defaultTimeLocale, formatTime, getCurrentTime)
 import System.Directory (doesDirectoryExist, doesPathExist)
 import System.FilePath (takeDirectory)
 import System.IO
-import System.IO (IOMode (ReadMode), withFile)
-import Text.Read (Lexeme (String))
 import Text.XHtml (menu)
 
 -- Funcion que permite mostrar las opciones del menu de inicio
@@ -17,11 +15,11 @@ main = do
   rutaRef <- newIORef "" -- Inicializamos la referencia vacía
   menuPrincipal rutaRef
 
--- Funcion del menú principal que ahora recibe la referencia
+-- Funcion del menu principal que ahora recibe la referencia
 menuPrincipal :: IORef FilePath -> IO ()
 menuPrincipal rutaRef = do
   putStrLn "\nBienvenido al sistema\n"
-  putStrLn "Por favor seleccione la opción deseada:\n"
+  putStrLn "Por favor seleccione la opcion deseada:\n"
   putStrLn "1. Menu operacional"
   putStrLn "2. Menu general"
   putStrLn "0. Salir"
@@ -65,11 +63,11 @@ menuOperacional rutaRef = do
       putStrLn "ID no válido. Por favor, intente nuevamente."
       menuOperacional rutaRef
 
--- Funcion para el menú general
+-- Funcion para el menu general
 menuGeneral :: IO ()
 menuGeneral = do
   putStrLn "\nMenu General\n"
-  -- Aquí irian las opciones del menú general
+  -- Aquí irian las opciones del menu general
   putStrLn "\nVolviendo al menú principal..."
   main
 
@@ -140,7 +138,7 @@ validarCodigoUnico mensaje existentes = do
   if not (null codigo) && all (\(c, _, _, _) -> c /= codigo) existentes
     then return codigo
     else do
-      putStrLn "Error: El código ya existe o es invalido, ingrese uno nuevo."
+      putStrLn "Error: El codigo ya existe o es invalido, ingrese uno nuevo."
       validarCodigoUnico mensaje existentes
 
 -- Funciin para validar las entradas de las variables brindada por chat
@@ -214,7 +212,7 @@ cargarSalasDeReunion :: IORef FilePath -> IO ()
 cargarSalasDeReunion rutaRef = do
   -- Leemos la ruta previamente almacenada en rutaRef
   ruta <- readIORef rutaRef
-  putStrLn ("Ruta leída: " ++ ruta)
+  putStrLn ("Ruta leida: " ++ ruta)
   ruta <- readIORef rutaRef
   let rutaSala = "archivosTxt\\salas.txt"
   let carpetaSalas = takeDirectory ruta
@@ -237,10 +235,6 @@ cargarSalasDeReunion rutaRef = do
       mostrarMobiliarioGuardado rutaRef
       -- Llamada a seleccionarMobiliarios con la lista de mobiliarios existentes y una lista vacia para los seleccionados
       idsMobiliarios <- seleccionarMobiliarios existentes []
-
-      -- Define el valor inicial del contador
-      let contador = 1 -- Puedes cambiar este valor si lo deseas
-
       -- Genera el código de sala (usamos un contador y lo convertimos a String)
       codigoSala <- generarCodigoUnico
 
@@ -256,6 +250,7 @@ cargarSalasDeReunion rutaRef = do
       menuSalasReunion rutaRef
     else putStrLn "Error: La carpeta especificada no existe."
 
+-- Funcion que me permite ver la info de una sala segun su codigo de salxa
 mostrarSalasDeReunion :: IORef FilePath -> IO ()
 mostrarSalasDeReunion rutaRef = do
   let rutaSalas = "archivosTxt\\salas.txt"
@@ -278,23 +273,23 @@ mostrarSalasDeReunion rutaRef = do
 
 ------------------------------------------Funciones auxiliares Salas-------------------------------------------------------------
 
--- Función para generar un código único basado en la fecha y hora
+-- Función para generar un código unico basado en la fecha y hora
 generarCodigoUnico :: IO String
 generarCodigoUnico = do
   tiempoActual <- getCurrentTime
   let codigoUnico = formatTime defaultTimeLocale "%Y%m%d%H%M%S" tiempoActual
   return codigoUnico
 
--- Función para procesar una línea del archivo de salas en una tupla
+-- Función para procesar una linea del archivo de salas en una tupla
 procesarLineaSala :: String -> (String, String, String, String, String, String)
 procesarLineaSala linea =
   let [codigoSala, nombre, piso, ubicacion, capacidad, mobiliarios] = splitBy ',' linea
    in (codigoSala, nombre, piso, ubicacion, capacidad, mobiliarios)
 
--- Función para formatear la información de la sala para mostrarla
+-- Funcion para formatear la informacion de la sala para mostrarla
 formatearSala :: (String, String, String, String, String, String) -> String
 formatearSala (codigoSala, nombre, piso, ubicacion, capacidad, mobiliarios) =
-  "Código de la sala: " ++ codigoSala ++ ", Nombre: " ++ nombre ++ ", Piso: " ++ piso ++ ", Ubicación: " ++ ubicacion ++ ", Capacidad: " ++ capacidad ++ ", Mobiliarios: " ++ mobiliarios
+  "Codigo de la sala: " ++ codigoSala ++ ", Nombre: " ++ nombre ++ ", Piso: " ++ piso ++ ", Ubicacion: " ++ ubicacion ++ ", Capacidad: " ++ capacidad ++ ", Mobiliarios: " ++ mobiliarios
 
 -- Funcion para cargar la lista de mobiliarios desde el archivo
 cargarMobiliariosDesdeArchivo :: IORef FilePath -> IO [(String, String, String, String)]
@@ -308,7 +303,6 @@ cargarMobiliariosDesdeArchivo rutaRef = do
   return $ map procesarLineaMobiliario lineas -- Procesa cada línea en la tupla
 
 -- Funcion para seleccionar mobiliarios.Brindado por chat
--- Función para seleccionar mobiliarios
 seleccionarMobiliarios :: [(String, String, String, String)] -> [String] -> IO [String]
 seleccionarMobiliarios existentes seleccionados = do
   putStrLn "Ingrese el ID de los mobiliarios deseados (o '@' para terminar):"
@@ -332,7 +326,7 @@ seleccionarMobiliarios existentes seleccionados = do
           putStrLn "Error: ID no válido. Inténtalo de nuevo."
           seleccionarMobiliarios existentes seleccionados -- Volver a pedir el ID
 
--- Funcion que me permite obtener el nombre por id
+-- Funcion que me permite obtener el nombre por id.Brindado por chat
 buscarNombrePorID :: String -> [(String, String, String, String)] -> String
 buscarNombrePorID idMobiliario existentes =
   case filter (\(id, nombre, _, _) -> id == idMobiliario) existentes of
