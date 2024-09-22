@@ -40,7 +40,7 @@ menuOperacional rutaRef = do
   putStrLn "\nIngrese un id valido para acceder a las opciones operacionales: "
   idUsuario <- getLine
 
-  let ruta = "C:\\Users\\joses\\Desktop\\PY02-Lenguajes\\archivosTxt\\usuarios.txt"
+  let ruta = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/usuarios.txt"
   contenido <- leerArchivo ruta
   let usuarios = map procesarLinea (lines contenido)
 
@@ -70,11 +70,65 @@ menuGeneral :: IO ()
 menuGeneral = do
   putStrLn "\nMenu General\n"
   -- Aquí irian las opciones del menu general
-  putStrLn "\nVolviendo al menú principal..."
-  main
+  putStrLn "\nOpciones del Menu General\n"
+  putStrLn "1. Gestion de reserva"
+  putStrLn "2. Consulta de reserva"
+  putStrLn "3.Cancelacion o modificacion de reserva"
+  putStrLn "4.Consulta de disponibilidad de sala"
+  putStrLn "5.Volver"
+  opcion <- getLine
+  case opcion of
+    "1" -> gestionReserva
+    "2" -> do 
+      putStrLn "Consulta de reserva"
+      menuGeneral
+    "3" -> do 
+      putStrLn "Cancelacion o modificacion de reserva"
+      menuGeneral
+    "4" -> do 
+      putStrLn "Consulta de disponibilidad de sala"
+      menuGeneral
+    "5" -> main
+    _ -> do
+      putStrLn "Opción inválida. Intentelo de nuevo."
+      menuGeneral
+
+
+-------------------------------------------------Gestion de reserva---------------------------------------------------------------
+gestionReserva :: IO ()
+gestionReserva = do
+  putStrLn "\nIngrese el identificador de usuario: "
+  idUsuario <- getLine
+  let ruta = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/usuarios.txt"
+  contenido <- leerArchivo ruta
+  let usuarios = map procesarLinea (lines contenido)
+ 
+  case lookup idUsuario (map (\(id, nombre, puesto) -> (id, (nombre, puesto))) usuarios) of -- Brindado por chat
+    Just (nombre, puesto) -> do
+      
+      putStrLn "\nIngrese el identificador de sala: "
+      codigoSala <- getLine
+      let ruta = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/salas.txt"
+      contenido <- leerArchivo ruta
+      let salas = map procesarLineaSala (lines contenido)
+
+      case lookup codigoSala (map (\(id, nombre, piso, ubicacion, capacidad, mobiliarios) -> (id, (nombre, piso, ubicacion, capacidad, mobiliarios))) salas) of -- Brindado por chat
+        Just (nombre, piso, ubicacion, capacidad, mobiliarios) -> do
+          putStrLn "Funciona."
+          menuGeneral
+        Nothing -> do
+          putStrLn "La sala no existe."
+          menuGeneral
+    Nothing -> do
+      putStrLn "El usuario no existe."
+      menuGeneral
+
+
+  
+
 
 -------------------------------------------------Funciones auxiliares usuario---------------------------------------------------------------
--- Funcion para procesar cada línea del archivo
+-- Funcion para procesar cada línea del archivo usuarios
 procesarLinea :: String -> (String, String, String)
 procesarLinea linea =
   let [id, nombre, puesto] = splitBy ',' linea
