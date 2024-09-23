@@ -1,5 +1,6 @@
 -- Imports de archivos
-
+import Text.Read (readMaybe)
+import Text.Regex.Posix ((=~))
 --  isDigit para verifica si un caracter es un digito
 
 import Data.Char (isAlpha, isDigit)
@@ -40,7 +41,7 @@ menuOperacional rutaRef = do
   putStrLn "\nIngrese un id valido para acceder a las opciones operacionales: "
   idUsuario <- getLine
 
-  let ruta = "C:\\Users\\joses\\Desktop\\PY02-Lenguajes\\archivosTxt\\usuarios.txt"
+  let ruta = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/usuarios.txt"
   contenido <- leerArchivo ruta
   let usuarios = map procesarLinea (lines contenido)
 
@@ -69,12 +70,244 @@ menuOperacional rutaRef = do
 menuGeneral :: IO ()
 menuGeneral = do
   putStrLn "\nMenu General\n"
-  -- Aquí irian las opciones del menu general
-  putStrLn "\nVolviendo al menú principal..."
-  main
+  putStrLn "1. Gestion de reserva"
+  putStrLn "2. Consulta de reserva"
+  putStrLn "3. Cancelacion de reserva"
+  putStrLn "4. Modificacion de reserva"
+  putStrLn "5. Consulta de disponibilidad de sala"
+  putStrLn "6. Volver"
+  opcion <- getLine
+  case opcion of
+    "1" -> gestionReserva
+    "2" -> consultaReserva
+    "3" -> eliminarReserva
+    "4" -> modificarReserva
+    "5" -> do 
+      putStrLn "Consulta de disponibilidad de sala"
+      menuGeneral
+    "6" -> main
+    _ -> do
+      putStrLn "Opción inválida. Intentelo de nuevo."
+      menuGeneral
+
+
+-------------------------------------------------Consulta de reserva---------------------------------------------------------------
+consultaReserva :: IO ()
+consultaReserva = do
+  putStrLn "\nIngrese el identificador de reserva: "
+  codigoReserva <- getLine
+  let ruta = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/reservas.txt"
+  contenido <- leerArchivo ruta
+  let reservas = map procesarLineaReserva (lines contenido)
+ 
+  case lookup codigoReserva (map (\(idReserva, idUsuario, codigoSala, capacidad, fecha) -> (codigoReserva, (idUsuario, codigoSala, capacidad, fecha))) reservas) of -- Brindado por chat
+    Just (idUsuario, codigoSala, capacidad, fecha) -> do
+      putStrLn $ "ID de reserva: " ++ codigoReserva
+      putStrLn $ "ID de usuario: " ++ idUsuario
+      putStrLn $ "Sala : " ++ codigoSala
+      putStrLn $ "Capacidad : " ++ capacidad
+      putStrLn $ "Fecha de reserva: " ++ fecha
+      menuGeneral
+    Nothing -> do
+      putStrLn "Esa reserva no existe"
+      menuGeneral
+
+
+
+-------------------------------------------------Cancelacion de reserva---------------------------------------------------------------
+
+eliminarReserva :: IO ()
+eliminarReserva = do
+  putStrLn "\nIngrese el identificador de reserva a eliminar: "
+  codigoReserva <- getLine
+  let ruta = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/reservas.txt"
+  contenido <- leerArchivo ruta
+  let reservas = map procesarLineaReserva (lines contenido)
+
+  -- Filtramos las reservas que no tienen el código de reserva indicado
+  let nuevasReservas = filter (\(idReserva, _, _, _, _) -> idReserva /= codigoReserva) reservas
+
+  if length reservas == length nuevasReservas
+    then do
+      putStrLn "Esa reserva no existe."
+    else do
+      -- Sobrescribimos el archivo con las nuevas reservas
+      let nuevoContenido = unlines (map (\(idReserva, idUsuario, codigoSala, capacidad, fecha) -> 
+                                idReserva ++ "," ++ idUsuario ++ "," ++ codigoSala ++ "," ++ capacidad ++ "," ++ fecha) nuevasReservas)
+      writeFile ruta nuevoContenido
+      putStrLn "La reserva ha sido eliminada correctamente."
+
+  menuGeneral
+
+
+-------------------------------------------------Modificacion de reserva---------------------------------------------------------------
+
+-- Función para modificar una reserva existente
+modificarReserva :: IO ()
+modificarReserva = do
+  putStrLn "\nIngrese el código de reserva a modificar: "
+  codigoReserva <- getLine
+  let ruta = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/reservas.txt"
+  contenido <- leerArchivo ruta
+  let reservas = map procesarLineaReserva (lines contenido)
+  
+  case lookup codigoReserva (map (\(id, user, codigo, cap, fecha) -> (id, (user, codigo, cap, fecha))) reservas) of
+    Just (idUsuario, codigoSalaOriginal, capacidadOriginal, fechaOriginal) -> do
+      -- Modificación de la sala
+      putStrLn $ "Identificador de sala actual: " ++ codigoSalaOriginal
+      putStrLn "Ingrese el nuevo identificador de sala (o ingrese 0 para mantener la actual): "
+      codigoSala <- getLine
+      let nuevoCodigoSala = if codigoSala == "0" then codigoSalaOriginal else codigoSala
+      
+      -- Modificación de la fecha
+      putStrLn $ "Fecha actual: " ++ fechaOriginal
+      putStrLn "Ingrese la nueva fecha en formato yyyy-mm-dd (o ingrese 0 para mantener la actual): "
+      fecha <- getLine
+      let nuevaFecha = if fecha == "0" then fechaOriginal else fecha
+
+      -- Validamos la nueva fecha
+      if nuevaFecha /= "0" && not (validarFecha nuevaFecha)
+        then do
+          putStrLn "El formato de fecha es incorrecto."
+          menuGeneral
+        else do
+          -- Modificación de la cantidad de personas
+          putStrLn $ "Capacidad actual: " ++ capacidadOriginal
+          putStrLn "Ingrese la nueva cantidad de personas (o ingrese 0 para mantener la actual): "
+          nuevaCapacidad <- getLine
+          let nuevaCapacidadFinal = if nuevaCapacidad == "0" then capacidadOriginal else nuevaCapacidad
+
+          case readMaybe nuevaCapacidadFinal :: Maybe Int of
+            Just nuevaCap -> do
+              -- Validamos la capacidad de la sala
+              let rutaSalas = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/salas.txt"
+              salasContenido <- leerArchivo rutaSalas
+              let salas = map procesarLineaSala (lines salasContenido)
+
+              case lookup nuevoCodigoSala (map (\(id, nombre, piso, ubicacion, capacidad, mobiliarios) -> (id, (nombre, capacidad))) salas) of
+                Just (_, capacidadSala) -> do
+                  let capacidadInt = read capacidadSala :: Int
+                  if nuevaCap <= capacidadInt
+                    then do
+                      -- Comprobamos si ya hay una reserva en la nueva sala y fecha
+                      case lookup (nuevoCodigoSala, nuevaFecha) (map (\(id, user, codigo, cap, fecha) -> ((codigo, fecha), id)) reservas) of
+                        Just _ -> do
+                          putStrLn "La sala ya está reservada en esa fecha."
+                          menuGeneral
+                        Nothing -> do
+                          -- Actualizamos la reserva
+                          let nuevasReservas = map (\(id, user, codigo, cap, fecha) ->
+                                  if id == codigoReserva
+                                  then (id, user, nuevoCodigoSala, nuevaCapacidadFinal, nuevaFecha)
+                                  else (id, user, codigo, cap, fecha)) reservas
+                          let nuevoContenido = unlines (map (\(id, user, codigo, cap, fecha) -> 
+                                  id ++ "," ++ user ++ "," ++ codigo ++ "," ++ cap ++ "," ++ fecha) nuevasReservas)
+                          writeFile ruta nuevoContenido
+                          putStrLn "La reserva ha sido modificada correctamente."
+                          menuGeneral
+                    else do
+                      putStrLn "La nueva cantidad de personas supera la capacidad de la sala."
+                      menuGeneral
+                Nothing -> do
+                  putStrLn "La sala no existe."
+                  menuGeneral
+            Nothing -> do
+              putStrLn "La cantidad ingresada no es válida."
+              menuGeneral
+    Nothing -> do
+      putStrLn "El código de reserva no existe."
+      menuGeneral
+
+
+
+
+
+
+
+
+
+
+-------------------------------------------------Gestion de reserva---------------------------------------------------------------
+-- Función para agregar reserva
+agregarReserva :: FilePath -> String -> IO ()
+agregarReserva direccion contenido = appendFile direccion (contenido ++ "\n")
+
+-- Función para procesar una linea del archivo de reservas en una tupla
+procesarLineaReserva :: String -> (String, String, String, String, String)
+procesarLineaReserva linea =
+  let [idReserva, idUsuario, codigoSala, capacidad, fecha] = splitBy ',' linea
+   in (idReserva, idUsuario, codigoSala, capacidad, fecha)
+
+-- Función para validar el formato de la fecha
+validarFecha :: String -> Bool
+validarFecha fecha = fecha =~ "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+
+
+gestionReserva :: IO ()
+gestionReserva = do
+  putStrLn "\nIngrese el identificador de usuario: "
+  codigoUsuario <- getLine
+  let ruta = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/usuarios.txt"
+  contenido <- leerArchivo ruta
+  let usuarios = map procesarLinea (lines contenido)
+ 
+  case lookup codigoUsuario (map (\(id, nombre, puesto) -> (id, (nombre, puesto))) usuarios) of -- Brindado por chat
+    Just (nombre, puesto) -> do
+      
+      putStrLn "\nIngrese el identificador de sala: "
+      codigoSala <- getLine
+      let ruta = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/salas.txt"
+      contenido <- leerArchivo ruta
+      let salas = map procesarLineaSala (lines contenido)
+
+      case lookup codigoSala (map (\(id, nombre, piso, ubicacion, capacidad, mobiliarios) -> (id, (nombre, piso, ubicacion, capacidad, mobiliarios))) salas) of -- Brindado por chat
+        Just (nombre, piso, ubicacion, capacidad, mobiliarios) -> do
+         
+          let entero = read capacidad :: Int  
+          putStrLn "Ingrese la cantidad de personas: "
+          input <- getLine
+          case readMaybe input :: Maybe Int of
+              Just num -> if num <= entero
+                          then do 
+                            putStrLn "Ingrese la fecha en la que desea reservar en formato yyyy-mm-dd"
+                            fecha <- getLine
+                            if validarFecha fecha
+                            then do
+                              let ruta = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/reservas.txt"
+                              contenido <- leerArchivo ruta
+                              let reservas = map procesarLineaReserva (lines contenido)
+                              case lookup (codigoSala, fecha) (map (\(id, user, codigo, cap, fecha) -> ((codigo, fecha), (id, user, cap))) reservas) of
+                                Just (idReserva, idUsuario, capacidad) -> do
+                                  putStrLn "La sala ya se encuentra reservada para esa fecha"
+                                  menuGeneral
+                                Nothing -> do 
+                                  let identificador = length reservas +1
+                                  putStrLn $ "El identificador de su reserva es " ++ show identificador
+                                  let resultado = show identificador ++ "," ++ codigoUsuario ++ "," ++ codigoSala ++ "," ++ input ++ "," ++ fecha
+                                  agregarReserva ruta resultado
+                                  menuGeneral
+                            else do
+                              putStrLn "El formato de fecha es incorrecto"
+                              menuGeneral
+                          else do 
+                            putStrLn "La cantidad de personas ingresadas supera la capacidad de la sala"
+                            menuGeneral
+              Nothing  -> do 
+                putStrLn "Lo ingresado no es un número entero válido" 
+                menuGeneral
+        Nothing -> do
+          putStrLn "La sala no existe."
+          menuGeneral
+    Nothing -> do
+      putStrLn "El usuario no existe."
+      menuGeneral
+
+
+  
+
 
 -------------------------------------------------Funciones auxiliares usuario---------------------------------------------------------------
--- Funcion para procesar cada línea del archivo
+-- Funcion para procesar cada línea del archivo usuarios
 procesarLinea :: String -> (String, String, String)
 procesarLinea linea =
   let [id, nombre, puesto] = splitBy ',' linea
