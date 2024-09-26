@@ -11,6 +11,9 @@ import System.Directory (doesDirectoryExist, doesPathExist)
 import System.FilePath (takeDirectory)
 import System.IO
 import Text.XHtml (menu)
+import Data.List
+import Data.Time
+import Data.Time.Format
 
 -- Funcion que permite mostrar las opciones del menu de inicio
 main :: IO ()
@@ -82,13 +85,119 @@ menuGeneral = do
     "2" -> consultaReserva
     "3" -> eliminarReserva
     "4" -> modificarReserva
-    "5" -> do 
-      putStrLn "Consulta de disponibilidad de sala"
-      menuGeneral
+    "5" -> subMenu
     "6" -> main
     _ -> do
       putStrLn "Opción inválida. Intentelo de nuevo."
       menuGeneral
+
+
+-------------------------------------------------SubMenu Disponibilidad---------------------------------------------------------------
+
+
+-- Paso 1: Solicitar la fecha de inicio y la fecha de fin
+solicitarFechas :: IO (Maybe (String, String))
+solicitarFechas = do
+    putStrLn "Ingrese la fecha de inicio en formato YYYY-MM-DD:"
+    fechaInicio <- getLine
+    putStrLn "Ingrese la fecha de fin en formato YYYY-MM-DD:"
+    fechaFin <- getLine
+    if fechaInicio <= fechaFin
+        then return $ Just (fechaInicio, fechaFin)
+        else do
+            putStrLn "La fecha de inicio debe ser menor o igual a la fecha de fin."
+            return Nothing  -- Retornar Nothing en caso de error
+
+-- Solicitar una única fecha
+solicitarFechaUnica :: IO String
+solicitarFechaUnica = do
+    putStrLn "Ingrese la fecha en formato YYYY-MM-DD:"
+    getLine
+
+-- Funcion para generar todas las fechas en el rango
+fechasEnRango :: String -> String -> [String]
+fechasEnRango fechaInicio fechaFin = 
+    let dayInicio = parseDate fechaInicio
+        dayFin = parseDate fechaFin
+    in map (formatTime defaultTimeLocale "%Y-%m-%d") [dayInicio .. dayFin]
+
+-- Funcion para parsear una fecha
+parseDate :: String -> Day
+parseDate = parseTimeOrError True defaultTimeLocale "%Y-%m-%d"
+
+-- Paso 2: Leer el archivo de salas y obtener los IDs de sala
+obtenerIdsSalas :: FilePath -> IO [String]
+obtenerIdsSalas archivoSalas = do
+    contenido <- readFile archivoSalas
+    let lineas = lines contenido
+        idsSalas = map (head . splitBy ',') lineas
+    return idsSalas
+
+-- Paso 3 y 4: Asociar las fechas con los IDs de sala y verificar disponibilidad
+verificarSalasEnRango :: FilePath -> FilePath -> [String] -> IO ()
+verificarSalasEnRango archivoSalas archivoReservas fechas = do
+    idsSalas <- obtenerIdsSalas archivoSalas
+    mapM_ (verificarSalasEnFecha archivoReservas idsSalas) fechas
+
+verificarSalasEnFecha :: FilePath -> [String] -> String -> IO ()
+verificarSalasEnFecha archivoReservas idsSalas fecha = do
+    let salasConFecha = map (\idSala -> (idSala, fecha)) idsSalas
+    putStrLn $ "Verificando disponibilidad para la fecha: " ++ fecha
+    mapM_ (verificarYMostrar archivoReservas) salasConFecha
+
+-- Paso 5: Verificar si una sala con una fecha existe en el archivo de reservas
+existeReserva :: FilePath -> (String, String) -> IO Bool
+existeReserva archivoReservas (idSala, fecha) = do
+    contenido <- readFile archivoReservas
+    let lineas = lines contenido
+        reservas = map (splitBy ',') lineas
+        reservasFiltradas = filter (\[_id, _, idS, _, f] -> idS == idSala && f == fecha) reservas
+    return (not (null reservasFiltradas))
+
+-- Paso 6: Mostrar estado de la sala para cada fecha
+verificarYMostrar :: FilePath -> (String, String) -> IO ()
+verificarYMostrar archivoReservas (idSala, fecha) = do
+    reservada <- existeReserva archivoReservas (idSala, fecha)
+    if reservada
+        then putStrLn $ "La sala " ++ idSala ++ " esta reservada para la fecha " ++ fecha
+        else putStrLn $ "La sala " ++ idSala ++ " esta libre para la fecha " ++ fecha
+
+-- Función principal para ejecutar el programa
+subMenu :: IO ()
+subMenu = do
+    let archivoSalas = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/salas.txt"
+    let archivoReservas = "/home/tati05/PY02-Lenguajes-main/PY02-Lenguajes-main/archivosTxt/reservas.txt"
+    putStrLn "\nSub Menu de consultas:"
+    putStrLn "1. Verificar disponibilidad para una fecha especifica"
+    putStrLn "2. Verificar disponibilidad para un rango de fechas"
+    putStrLn "3. Volver"
+    putStrLn "Opcion:"
+    opcion <- getLine
+    case opcion of
+        "1" -> do
+            fecha <- solicitarFechaUnica
+            verificarSalasEnRango archivoSalas archivoReservas [fecha]
+            subMenu
+        "2" -> do
+            fechas <- solicitarFechas
+            case fechas of
+                Just (fechaInicio, fechaFin) -> do
+                    let fechasRango = fechasEnRango fechaInicio fechaFin
+                    verificarSalasEnRango archivoSalas archivoReservas fechasRango
+                    subMenu
+                Nothing -> subMenu  -- Volver al submenú si hay un error en las fechas
+        "3" -> menuGeneral
+        _   -> do
+            putStrLn "Opcion no valida. Intente de nuevo."
+            subMenu
+
+
+    
+
+
+
+
+
 
 
 -------------------------------------------------Consulta de reserva---------------------------------------------------------------
