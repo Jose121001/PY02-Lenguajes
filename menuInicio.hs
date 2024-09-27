@@ -5,10 +5,12 @@
 import Data.Char (isAlpha, isDigit)
 import Data.IORef
 import Data.List (isInfixOf)
-import Data.Time (defaultTimeLocale, formatTime, getCurrentTime)
+import Data.Time (Day, defaultTimeLocale, formatTime, getCurrentTime)
+import Data.Time.Format (defaultTimeLocale, parseTimeOrError)
 import System.Directory (doesDirectoryExist, doesPathExist)
 import System.FilePath (takeDirectory)
 import System.IO
+import Text.Read (readMaybe)
 import Text.XHtml (menu)
 
 -- Funcion que permite mostrar las opciones del menu de inicio
@@ -56,7 +58,7 @@ menuOperacional rutaRef = do
       case opcion of
         "1" -> cargarMobiliario rutaRef
         "2" -> menuSalasReunion rutaRef
-        "3" -> putStrLn "Informe de reservas..."
+        "3" -> mostrarReservas rutaRef
         "0" -> main
         _ -> do
           putStrLn "Opción inválida. Intentelo de nuevo."
@@ -69,9 +71,23 @@ menuOperacional rutaRef = do
 menuGeneral :: IO ()
 menuGeneral = do
   putStrLn "\nMenu General\n"
-  -- Aquí irian las opciones del menu general
-  putStrLn "\nVolviendo al menú principal..."
-  main
+  putStrLn "1. Gestion de reserva"
+  putStrLn "2. Consulta de reserva"
+  putStrLn "3. Cancelacion de reserva"
+  putStrLn "4. Modificacion de reserva"
+  putStrLn "5. Consulta de disponibilidad de sala"
+  putStrLn "6. Volver"
+  opcion <- getLine
+  case opcion of
+    "1" -> gestionReserva
+    "2" -> consultaReserva
+    "3" -> eliminarReserva
+    "4" -> modificarReserva
+    "5" -> subMenu
+    "6" -> main
+    _ -> do
+      putStrLn "Opción inválida. Intentelo de nuevo."
+      menuGeneral
 
 -------------------------------------------------Funciones auxiliares usuario---------------------------------------------------------------
 -- Funcion para procesar cada línea del archivo
@@ -86,6 +102,353 @@ formatearUsuario (id, nombre, puesto) = "ID: " ++ id ++ ", Nombre: " ++ nombre +
 
 -------------------------------------------------Fin de funciones auxiliares usuario---------------------------------------------------------------
 --------------------------------------------------------------------------------------------------------------------------------------------------
+
+-------------------------------------------------SubMenu Disponibilidad---------------------------------------------------------------
+
+-- Paso 1: Solicitar la fecha de inicio y la fecha de fin
+solicitarFechas :: IO (Maybe (String, String))
+solicitarFechas = do
+  putStrLn "Ingrese la fecha de inicio en formato YYYY-MM-DD:"
+  fechaInicio <- getLine
+  putStrLn "Ingrese la fecha de fin en formato YYYY-MM-DD:"
+  fechaFin <- getLine
+  if fechaInicio <= fechaFin
+    then return $ Just (fechaInicio, fechaFin)
+    else do
+      putStrLn "La fecha de inicio debe ser menor o igual a la fecha de fin."
+      return Nothing -- Retornar Nothing en caso de error
+
+-- Solicitar una única fecha
+solicitarFechaUnica :: IO String
+solicitarFechaUnica = do
+  putStrLn "Ingrese la fecha en formato YYYY-MM-DD:"
+  getLine
+
+-- Funcion para generar todas las fechas en el rango
+fechasEnRango :: String -> String -> [String]
+fechasEnRango fechaInicio fechaFin =
+  let dayInicio = parseDate fechaInicio
+      dayFin = parseDate fechaFin
+   in map (formatTime defaultTimeLocale "%Y-%m-%d") [dayInicio .. dayFin]
+
+-- Funcion para parsear una fecha
+parseDate :: String -> Day
+parseDate = parseTimeOrError True defaultTimeLocale "%Y-%m-%d"
+
+-- Paso 2: Leer el archivo de salas y obtener los IDs de sala
+obtenerIdsSalas :: FilePath -> IO [String]
+obtenerIdsSalas archivoSalas = do
+  contenido <- readFile archivoSalas
+  let lineas = lines contenido
+      idsSalas = map (head . splitBy ',') lineas
+  return idsSalas
+
+-- Paso 3 y 4: Asociar las fechas con los IDs de sala y verificar disponibilidad
+verificarSalasEnRango :: FilePath -> FilePath -> [String] -> IO ()
+verificarSalasEnRango archivoSalas archivoReservas fechas = do
+  idsSalas <- obtenerIdsSalas archivoSalas
+  mapM_ (verificarSalasEnFecha archivoReservas idsSalas) fechas
+
+verificarSalasEnFecha :: FilePath -> [String] -> String -> IO ()
+verificarSalasEnFecha archivoReservas idsSalas fecha = do
+  let salasConFecha = map (\idSala -> (idSala, fecha)) idsSalas
+  putStrLn $ "Verificando disponibilidad para la fecha: " ++ fecha
+  mapM_ (verificarYMostrar archivoReservas) salasConFecha
+
+-- Paso 5: Verificar si una sala con una fecha existe en el archivo de reservas
+existeReserva :: FilePath -> (String, String) -> IO Bool
+existeReserva archivoReservas (idSala, fecha) = do
+  contenido <- readFile archivoReservas
+  let lineas = lines contenido
+      reservas = map (splitBy ',') lineas
+      reservasFiltradas = filter (\[_id, _, idS, _, f] -> idS == idSala && f == fecha) reservas
+  return (not (null reservasFiltradas))
+
+-- Paso 6: Mostrar estado de la sala para cada fecha
+verificarYMostrar :: FilePath -> (String, String) -> IO ()
+verificarYMostrar archivoReservas (idSala, fecha) = do
+  reservada <- existeReserva archivoReservas (idSala, fecha)
+  if reservada
+    then putStrLn $ "La sala " ++ idSala ++ " esta reservada para la fecha " ++ fecha
+    else putStrLn $ "La sala " ++ idSala ++ " esta libre para la fecha " ++ fecha
+
+-- Función principal para ejecutar el programa
+subMenu :: IO ()
+subMenu = do
+  let archivoSalas = "archivosTxt\\salas.txt"
+  let archivoReservas = "archivosTxt\\reservas.txt"
+  putStrLn "\nSub Menu de consultas:"
+  putStrLn "1. Verificar disponibilidad para una fecha especifica"
+  putStrLn "2. Verificar disponibilidad para un rango de fechas"
+  putStrLn "3. Volver"
+  putStrLn "Opcion:"
+  opcion <- getLine
+  case opcion of
+    "1" -> do
+      fecha <- solicitarFechaUnica
+      verificarSalasEnRango archivoSalas archivoReservas [fecha]
+      subMenu
+    "2" -> do
+      fechas <- solicitarFechas
+      case fechas of
+        Just (fechaInicio, fechaFin) -> do
+          let fechasRango = fechasEnRango fechaInicio fechaFin
+          verificarSalasEnRango archivoSalas archivoReservas fechasRango
+          subMenu
+        Nothing -> subMenu -- Volver al submenú si hay un error en las fechas
+    "3" -> menuGeneral
+    _ -> do
+      putStrLn "Opcion no valida. Intente de nuevo."
+      subMenu
+
+-------------------------------------------------Consulta de reserva---------------------------------------------------------------
+consultaReserva :: IO ()
+consultaReserva = do
+  putStrLn "\nIngrese el identificador de reserva: "
+  codigoReserva <- getLine
+  let ruta = "archivosTxt\\reservas.txt"
+  contenido <- leerArchivo ruta
+  let reservas = map procesarLineaReserva (lines contenido)
+
+  case lookup codigoReserva (map (\(idReserva, idUsuario, codigoSala, capacidad, fecha) -> (codigoReserva, (idUsuario, codigoSala, capacidad, fecha))) reservas) of -- Brindado por chat
+    Just (idUsuario, codigoSala, capacidad, fecha) -> do
+      putStrLn $ "ID de reserva: " ++ codigoReserva
+      putStrLn $ "ID de usuario: " ++ idUsuario
+      putStrLn $ "Sala : " ++ codigoSala
+      putStrLn $ "Capacidad : " ++ capacidad
+      putStrLn $ "Fecha de reserva: " ++ fecha
+      menuGeneral
+    Nothing -> do
+      putStrLn "Esa reserva no existe"
+      menuGeneral
+
+-------------------------------------------------Cancelacion de reserva---------------------------------------------------------------
+
+eliminarReserva :: IO ()
+eliminarReserva = do
+  putStrLn "\nIngrese el identificador de reserva a eliminar: "
+  codigoReserva <- getLine
+  let ruta = "archivosTxt\\reservas.txt"
+  contenido <- leerArchivo ruta
+  let reservas = map procesarLineaReserva (lines contenido)
+
+  -- Filtramos las reservas que no tienen el código de reserva indicado
+  let nuevasReservas = filter (\(idReserva, _, _, _, _) -> idReserva /= codigoReserva) reservas
+
+  if length reservas == length nuevasReservas
+    then do
+      putStrLn "Esa reserva no existe."
+    else do
+      -- Sobrescribimos el archivo con las nuevas reservas
+      let nuevoContenido =
+            unlines
+              ( map
+                  ( \(idReserva, idUsuario, codigoSala, capacidad, fecha) ->
+                      idReserva ++ "," ++ idUsuario ++ "," ++ codigoSala ++ "," ++ capacidad ++ "," ++ fecha
+                  )
+                  nuevasReservas
+              )
+      writeFile ruta nuevoContenido
+      putStrLn "La reserva ha sido eliminada correctamente."
+
+  menuGeneral
+
+-------------------------------------------------Modificacion de reserva---------------------------------------------------------------
+
+-- Función para modificar una reserva existente
+modificarReserva :: IO ()
+modificarReserva = do
+  putStrLn "\nIngrese el código de reserva a modificar: "
+  codigoReserva <- getLine
+  let ruta = "archivosTxt\\reservas.txt"
+  contenido <- leerArchivo ruta
+  let reservas = map procesarLineaReserva (lines contenido)
+
+  case lookup codigoReserva (map (\(id, user, codigo, cap, fecha) -> (id, (user, codigo, cap, fecha))) reservas) of
+    Just (idUsuario, codigoSalaOriginal, capacidadOriginal, fechaOriginal) -> do
+      -- Modificación de la sala
+      putStrLn $ "Identificador de sala actual: " ++ codigoSalaOriginal
+      putStrLn "Ingrese el nuevo identificador de sala (o ingrese 0 para mantener la actual): "
+      codigoSala <- getLine
+      let nuevoCodigoSala = if codigoSala == "0" then codigoSalaOriginal else codigoSala
+
+      -- Modificación de la fecha
+      putStrLn $ "Fecha actual: " ++ fechaOriginal
+      putStrLn "Ingrese la nueva fecha en formato yyyy-mm-dd (o ingrese 0 para mantener la actual): "
+      fecha <- getLine
+      let nuevaFecha = if fecha == "0" then fechaOriginal else fecha
+
+      -- Validamos la nueva fecha
+      if nuevaFecha /= "0" && not (validarFecha nuevaFecha)
+        then do
+          putStrLn "El formato de fecha es incorrecto."
+          menuGeneral
+        else do
+          -- Modificación de la cantidad de personas
+          putStrLn $ "Capacidad actual: " ++ capacidadOriginal
+          putStrLn "Ingrese la nueva cantidad de personas (o ingrese 0 para mantener la actual): "
+          nuevaCapacidad <- getLine
+          let nuevaCapacidadFinal = if nuevaCapacidad == "0" then capacidadOriginal else nuevaCapacidad
+
+          case readMaybe nuevaCapacidadFinal :: Maybe Int of
+            Just nuevaCap -> do
+              -- Validamos la capacidad de la sala
+              let rutaSalas = "archivosTxt\\salas.txt"
+              salasContenido <- leerArchivo rutaSalas
+              let salas = map procesarLineaSala (lines salasContenido)
+
+              case lookup nuevoCodigoSala (map (\(id, nombre, piso, ubicacion, capacidad, mobiliarios) -> (id, (nombre, capacidad))) salas) of
+                Just (_, capacidadSala) -> do
+                  let capacidadInt = read capacidadSala :: Int
+                  if nuevaCap <= capacidadInt
+                    then do
+                      -- Comprobamos si ya hay una reserva en la nueva sala y fecha
+                      case lookup (nuevoCodigoSala, nuevaFecha) (map (\(id, user, codigo, cap, fecha) -> ((codigo, fecha), id)) reservas) of
+                        Just _ -> do
+                          putStrLn "La sala ya está reservada en esa fecha."
+                          menuGeneral
+                        Nothing -> do
+                          -- Actualizamos la reserva
+                          let nuevasReservas =
+                                map
+                                  ( \(id, user, codigo, cap, fecha) ->
+                                      if id == codigoReserva
+                                        then (id, user, nuevoCodigoSala, nuevaCapacidadFinal, nuevaFecha)
+                                        else (id, user, codigo, cap, fecha)
+                                  )
+                                  reservas
+                          let nuevoContenido =
+                                unlines
+                                  ( map
+                                      ( \(id, user, codigo, cap, fecha) ->
+                                          id ++ "," ++ user ++ "," ++ codigo ++ "," ++ cap ++ "," ++ fecha
+                                      )
+                                      nuevasReservas
+                                  )
+                          writeFile ruta nuevoContenido
+                          putStrLn "La reserva ha sido modificada correctamente."
+                          menuGeneral
+                    else do
+                      putStrLn "La nueva cantidad de personas supera la capacidad de la sala."
+                      menuGeneral
+                Nothing -> do
+                  putStrLn "La sala no existe."
+                  menuGeneral
+            Nothing -> do
+              putStrLn "La cantidad ingresada no es válida."
+              menuGeneral
+    Nothing -> do
+      putStrLn "El código de reserva no existe."
+      menuGeneral
+
+-------------------------------------------------Gestion de reserva---------------------------------------------------------------
+--- Función para agregar reserva
+agregarReserva :: FilePath -> String -> IO ()
+agregarReserva direccion contenido = appendFile direccion (contenido ++ "\n")
+
+-- Función para procesar una linea del archivo de reservas en una tupla
+procesarLineaReserva :: String -> (String, String, String, String, String)
+procesarLineaReserva linea =
+  let [idReserva, idUsuario, codigoSala, capacidad, fecha] = splitBy ',' linea
+   in (idReserva, idUsuario, codigoSala, capacidad, fecha)
+
+-- Función para validar el formato de la fecha
+validarFecha :: String -> Bool
+validarFecha fecha = case splitFecha fecha of
+  Just (año, mes, día) -> esAñoValido año && esMesValido mes && esDiaValido mes día
+  Nothing -> False
+
+-- Función para separar la fecha en (año, mes, día)
+splitFecha :: String -> Maybe (Int, Int, Int)
+splitFecha fecha =
+  let partes = wordsWhen (== '-') fecha
+   in if length partes == 3
+        then Just (read (partes !! 0), read (partes !! 1), read (partes !! 2))
+        else Nothing
+
+-- Verificar si el año es válido
+esAñoValido :: Int -> Bool
+esAñoValido año = año >= 0
+
+-- Verificar si el mes es válido
+esMesValido :: Int -> Bool
+esMesValido mes = mes >= 1 && mes <= 12
+
+-- Verificar si el día es válido según el mes
+esDiaValido :: Int -> Int -> Bool
+esDiaValido mes día
+  | mes `elem` [1, 3, 5, 7, 8, 10, 12] = día >= 1 && día <= 31 -- Meses con 31 días
+  | mes `elem` [4, 6, 9, 11] = día >= 1 && día <= 30 -- Meses con 30 días
+  | mes == 2 = día >= 1 && día <= 28 -- Febrero (no estamos manejando años bisiestos aquí)
+  | otherwise = False
+
+-- Función auxiliar para dividir una cadena en partes según un delimitador
+wordsWhen :: (Char -> Bool) -> String -> [String]
+wordsWhen p s = case dropWhile p s of
+  "" -> []
+  s' -> w : wordsWhen p s''
+    where
+      (w, s'') = break p s'
+
+-- Funcion que me reserva la fecha
+gestionReserva :: IO ()
+gestionReserva = do
+  putStrLn "\nIngrese el identificador de usuario: "
+  codigoUsuario <- getLine
+  let ruta = "archivosTxt\\usuarios.txt"
+  contenido <- leerArchivo ruta
+  let usuarios = map procesarLinea (lines contenido)
+
+  case lookup codigoUsuario (map (\(id, nombre, puesto) -> (id, (nombre, puesto))) usuarios) of -- Brindado por chat
+    Just (nombre, puesto) -> do
+      putStrLn "\nIngrese el identificador de sala: "
+      codigoSala <- getLine
+      let ruta = "archivosTxt\\salas.txt"
+      contenido <- leerArchivo ruta
+      let salas = map procesarLineaSala (lines contenido)
+
+      case lookup codigoSala (map (\(id, nombre, piso, ubicacion, capacidad, mobiliarios) -> (id, (nombre, piso, ubicacion, capacidad, mobiliarios))) salas) of -- Brindado por chat
+        Just (nombre, piso, ubicacion, capacidad, mobiliarios) -> do
+          let entero = read capacidad :: Int
+          putStrLn "Ingrese la cantidad de personas: "
+          input <- getLine
+          case readMaybe input :: Maybe Int of
+            Just num ->
+              if num <= entero
+                then do
+                  putStrLn "Ingrese la fecha en la que desea reservar en formato yyyy-mm-dd"
+                  fecha <- getLine
+                  if validarFecha fecha
+                    then do
+                      let ruta = "archivosTxt\\reservas.txt"
+                      contenido <- leerArchivo ruta
+                      let reservas = map procesarLineaReserva (lines contenido)
+                      case lookup (codigoSala, fecha) (map (\(id, user, codigo, cap, fecha) -> ((codigo, fecha), (id, user, cap))) reservas) of
+                        Just (idReserva, idUsuario, capacidad) -> do
+                          putStrLn "La sala ya se encuentra reservada para esa fecha"
+                          menuGeneral
+                        Nothing -> do
+                          let identificador = length reservas + 1
+                          putStrLn $ "El identificador de su reserva es " ++ show identificador
+                          let resultado = show identificador ++ "," ++ codigoUsuario ++ "," ++ codigoSala ++ "," ++ input ++ "," ++ fecha
+                          agregarReserva ruta resultado
+                          menuGeneral
+                    else do
+                      putStrLn "El formato de fecha es incorrecto"
+                      menuGeneral
+                else do
+                  putStrLn "La cantidad de personas ingresadas supera la capacidad de la sala"
+                  menuGeneral
+            Nothing -> do
+              putStrLn "Lo ingresado no es un número entero válido"
+              menuGeneral
+        Nothing -> do
+          putStrLn "La sala no existe."
+          menuGeneral
+    Nothing -> do
+      putStrLn "El usuario no existe."
+      menuGeneral
+
 -------------------------------------------------Cargar mobiliarios-------------------------------------------------------------------------------
 
 -- Funcion para cargar mobiliario
@@ -353,6 +716,34 @@ validarCodigoExistente codigo existentes = do
 
 ---------------------------------------------Fin funciones  auxiliares Salas----------------------------------------------------------------------------
 --------------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------Informe de reservas----------------------------------------------------------------------------------------------------------
+
+mostrarReservas :: IORef FilePath -> IO ()
+mostrarReservas rutaRef = do
+  let rutaReservas = "archivosTxt\\reservas.txt"
+  archivoExiste <- doesPathExist rutaReservas
+
+  if archivoExiste
+    then do
+      contenido <- readFile rutaReservas
+      let lineas = lines contenido
+      let reservas = map procesarLineaReserva lineas
+
+      -- Mostrar todas las reservas
+      putStrLn "\nDatos de las reservas:\n"
+      mapM_ mostrarReserva reservas
+    else putStrLn "El archivo de reservas no existe."
+
+mostrarReserva :: (String, String, String, String, String) -> IO ()
+mostrarReserva (idReserva, idUsuario, codigoSala, capacidad, fecha) = do
+  putStrLn $ "IdReserva: " ++ idReserva
+  putStrLn $ "IdUsuario: " ++ idUsuario
+  putStrLn $ "CodigoSala: " ++ codigoSala
+  putStrLn $ "Capacidad: " ++ capacidad
+  putStrLn $ "Fecha: " ++ fecha
+  putStrLn "" -- Línea en blanco para separación
+  menuGeneral
+
 ---------------------------------------------Funciones auxiliares generales-----------------------------------------------------------------------------
 
 -- Funcion para leer el contenido de un archivo. Brindado por chat

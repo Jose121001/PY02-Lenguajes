@@ -6,3 +6,5 @@
 000,c,c,consumible
 00000,f,f,consumible
 z,z,z,consumible
+2,d,d,consumible
+88,alfombra,negra,menaje

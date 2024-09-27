@@ -1,5 +1,5 @@
-20240920234451,sala009,1,2,3,Nombre no encontrado
 20240920234518,x,x,x,x,Nombre no encontrado
 20240920234833,v,v,v,v,pantalla Monitor aire acondicionado Almuerzo Almuerzo aire acondicionado Monitor pantalla
 20240921002434,jujavi,2,2,w,pantalla pantalla
 20240921002718,pp,pp,pp,1,
+20240926224958,sala777,7,ultimo piso,20,alfombra alfombra
