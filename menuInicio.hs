@@ -4,7 +4,9 @@
 
 import Data.Char (isAlpha, isDigit)
 import Data.IORef
-import Data.List (isInfixOf)
+import Data.List (isInfixOf, maximumBy)
+import Data.Map qualified as Map
+import Data.Ord (comparing)
 import Data.Time (Day, defaultTimeLocale, formatTime, getCurrentTime)
 import Data.Time.Format (defaultTimeLocale, parseTimeOrError)
 import System.Directory (doesDirectoryExist, doesPathExist)
@@ -746,8 +748,8 @@ mostrarReserva (idReserva, idUsuario, codigoSala, capacidad, fecha) = do
 
   -- Obtener información de la sala
   obtenerInfoSala codigoSala
+  mostrarEstadisticas
   putStrLn "" -- Línea en blanco para separación
-  menuGeneral
 
 -- Función para obtener la información completa de la sala
 obtenerInfoSala :: String -> IO ()
@@ -769,8 +771,55 @@ obtenerInfoSala codigoSala = do
           putStrLn $ "Piso: " ++ piso
           putStrLn $ "CapacidadSala: " ++ capacidadSala
           putStrLn $ "Equipamiento: " ++ equipamiento
-        _ -> putStrLn "No se encontró la información de la sala."
+        _ ->
+          putStrLn
+            "No se encontró la información de la sala."
     else putStrLn "El archivo de salas no existe."
+
+-- Función para mostrar estadísticas
+mostrarEstadisticas :: IO ()
+mostrarEstadisticas = do
+  let rutaReservas = "archivosTxt\\reservas.txt"
+      rutaSalas = "archivosTxt\\salas.txt"
+
+  -- Verificar existencia del archivo de reservas
+  archivoReservasExiste <- doesPathExist rutaReservas
+  if not archivoReservasExiste
+    then putStrLn "El archivo de reservas no existe."
+    else do
+      contenidoReservas <- readFile rutaReservas
+      let reservas = map procesarLineaReserva (lines contenidoReservas)
+
+      -- Verificar existencia del archivo de salas
+      archivoSalasExiste <- doesPathExist rutaSalas
+      if not archivoSalasExiste
+        then putStrLn "El archivo de salas no existe."
+        else do
+          contenidoSalas <- readFile rutaSalas
+          let salas = map procesarLineaSala (lines contenidoSalas)
+
+          -- Contar la sala más utilizada
+          let salasUsadas = map (\(_, _, codigoSala, _, _) -> codigoSala) reservas
+              salaMasUtilizada = elementoMasFrecuente salasUsadas
+
+          -- Contar el usuario con mayor número de reservas
+          let usuariosReservas = map (\(_, idUsuario, _, _, _) -> idUsuario) reservas
+              usuarioConMasReservas = elementoMasFrecuente usuariosReservas
+
+          -- Contar el día con mayor cantidad de reservas
+          let diasReservas = map (\(_, _, _, _, fecha) -> fecha) reservas
+              diaConMasReservas = elementoMasFrecuente diasReservas
+
+          putStrLn "\n--- Estadísticas ---"
+          putStrLn $ "Sala más utilizada: " ++ salaMasUtilizada
+          putStrLn $ "Usuario con mayor número de reservas: " ++ usuarioConMasReservas
+          putStrLn $ "Día con mayor cantidad de reservas: " ++ diaConMasReservas
+
+-- Función para obtener el elemento más frecuente de una lista
+elementoMasFrecuente :: (Ord a) => [a] -> a
+elementoMasFrecuente xs = fst $ maximumBy (\(_, n1) (_, n2) -> compare n1 n2) (Map.toList conteos)
+  where
+    conteos = Map.fromListWith (+) [(x, 1) | x <- xs]
 
 ---------------------------------------------Funciones auxiliares generales-----------------------------------------------------------------------------
 
