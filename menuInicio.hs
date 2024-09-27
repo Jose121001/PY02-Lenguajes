@@ -718,6 +718,7 @@ validarCodigoExistente codigo existentes = do
 --------------------------------------------------------------------------------------------------------------------------------------------------------
 ------------------------------------------------Informe de reservas----------------------------------------------------------------------------------------------------------
 
+-- Mostrar la información de la reserva y la sala
 mostrarReservas :: IORef FilePath -> IO ()
 mostrarReservas rutaRef = do
   let rutaReservas = "archivosTxt\\reservas.txt"
@@ -734,6 +735,7 @@ mostrarReservas rutaRef = do
       mapM_ mostrarReserva reservas
     else putStrLn "El archivo de reservas no existe."
 
+-- Función para mostrar una reserva y obtener información de la sala
 mostrarReserva :: (String, String, String, String, String) -> IO ()
 mostrarReserva (idReserva, idUsuario, codigoSala, capacidad, fecha) = do
   putStrLn $ "IdReserva: " ++ idReserva
@@ -741,8 +743,34 @@ mostrarReserva (idReserva, idUsuario, codigoSala, capacidad, fecha) = do
   putStrLn $ "CodigoSala: " ++ codigoSala
   putStrLn $ "Capacidad: " ++ capacidad
   putStrLn $ "Fecha: " ++ fecha
+
+  -- Obtener información de la sala
+  obtenerInfoSala codigoSala
   putStrLn "" -- Línea en blanco para separación
   menuGeneral
+
+-- Función para obtener la información completa de la sala
+obtenerInfoSala :: String -> IO ()
+obtenerInfoSala codigoSala = do
+  let rutaSalas = "archivosTxt\\salas.txt"
+  archivoExiste <- doesPathExist rutaSalas
+
+  if archivoExiste
+    then do
+      contenido <- readFile rutaSalas
+      let lineas = lines contenido
+      let salas = map procesarLineaSala lineas
+      let salaEncontrada = filter (\(codigo, _, _, _, _, _) -> codigo == codigoSala) salas
+
+      case salaEncontrada of
+        [(codigo, nombre, ubicacion, piso, capacidadSala, equipamiento)] -> do
+          putStrLn $ "NombreSala: " ++ nombre
+          putStrLn $ "UbicacionSala: " ++ ubicacion
+          putStrLn $ "Piso: " ++ piso
+          putStrLn $ "CapacidadSala: " ++ capacidadSala
+          putStrLn $ "Equipamiento: " ++ equipamiento
+        _ -> putStrLn "No se encontró la información de la sala."
+    else putStrLn "El archivo de salas no existe."
 
 ---------------------------------------------Funciones auxiliares generales-----------------------------------------------------------------------------
 
