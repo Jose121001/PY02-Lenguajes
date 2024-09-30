@@ -1,3 +1,3 @@
-20240921002718,sala77,7,ultimo piso,30,tele tele
-20240926224958,sala777,7,ultimo piso,20,alfombra alfombra
-20240927021322,salaPrueba,primero,primer piso,10,Pizarra Pizarra
+20240930005403,Sala00,2,Segundo piso,20,Parlante CoffeMaker CoffeMaker Parlante
+20240930005455,Sala01,1,Primer piso a mano derecha,20,s Pizarra Pizarra s
+20240930005549,Sala02,3,Al fondo a la derecha,10,Parlante CoffeMaker Pizarra Pizarra CoffeMaker Parlante

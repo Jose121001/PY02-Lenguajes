@@ -449,7 +449,7 @@ gestionReserva = do
           menuGeneral
     Nothing -> do
       putStrLn "El usuario no existe."
-      menuOperacional
+      menuGeneral
 
 -------------------------------------------------Cargar mobiliarios-------------------------------------------------------------------------------
 
@@ -570,7 +570,7 @@ menuSalasReunion rutaRef = do
   case opcionUsuario of
     "1" -> cargarSalasDeReunion rutaRef
     "2" -> mostrarSalasDeReunion rutaRef
-    "0" -> menuOperacional rutaRef
+    "0" -> menuPrincipal rutaRef
     _ -> do
       putStrLn "Opción inválida. Intentelo de nuevo."
       menuSalasReunion rutaRef
@@ -614,7 +614,7 @@ cargarSalasDeReunion rutaRef = do
       appendFile rutaSala contenidoSala
       putStrLn ("\nCodigo de sala generado: " ++ codigoSala)
       putStrLn "\nSala agregada exitosamente....\n"
-      menuOperacional rutaRef
+      menuSalasReunion rutaRef
     else putStrLn "Error: La carpeta especificada no existe."
 
 -- Funcion que me permite ver la info de una sala segun su codigo de salxa
@@ -749,7 +749,7 @@ mostrarReserva (idReserva, idUsuario, codigoSala, capacidad, fecha) = do
   -- Obtener información de la sala
   obtenerInfoSala codigoSala
   mostrarEstadisticas
-  menuOperacional
+  menuGeneral -- Lo devolvemos a menu general para comrprobar las reservas
   putStrLn "" -- Línea en blanco para separación
 
 -- Función para obtener la información completa de la sala
