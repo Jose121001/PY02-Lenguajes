@@ -1,2 +1,8 @@
-00,Pantalla,Pantalla plana oled,electronico
-01,monitor,4k,electronico
+00,pantalla,Pantalla plana oled 4k,electronico
+01,Monitor,Monitor oled 8K,electronico
+02,aire acondicionado,Aire refrescador frio,electronico
+90,jajas,jajas,consumible
+0.0,Almuerzo,Comida,consumible
+000,c,c,consumible
+00000,f,f,consumible
+z,z,z,consumible
